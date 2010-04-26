@@ -12,11 +12,15 @@
 class Run
   # if no path is supplied uses current directory for project
   def initialize(path)
-    @pkg = Package.new(path)
+    @pkg = Package.new(path)    
     @apk = File.join(@pkg.path, "bin", "#{ @pkg.name }-debug.apk")
-    
+
     build
     install
+  end
+  
+  def first
+    `adb devices`.split("\n").pop().gsub('device','')
   end
   
   # creates tmp/android/bin/project.apk
@@ -24,11 +28,9 @@ class Run
     `cd #{ @pkg.path }; ant debug`
   end 
   
-  # installs apk to first device found
+  # installs apk to first device found, if none is found the first avd is launched
   def install
-    @device = `adb devices`.split("\n")[1]
-    raise "Unable to run! No devices found." if @device.nil?
-    @device.gsub!("\tdevice",'')
-    puts `adb -s #{ @device } install -r #{ @apk }`
+    `adb -s #{ first } install -r #{ @apk } 2>&1 > /dev/null`
   end
+  #
 end
