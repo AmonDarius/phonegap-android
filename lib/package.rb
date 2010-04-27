@@ -48,6 +48,10 @@ class Package
         @config[:description] = n.text if n.name == 'description'
         @config[:icon]        = n.attributes["src"] if n.name == 'icon'
         @config[:content]     = n.attributes["src"] if n.name == 'content'  
+        
+        if n.name == "preference" && n.attributes["name"] == 'javascript_folder'
+          @config[:js_dir] = n.attributes["value"]
+        end 
       end 
       
       # extract android specific stuff
@@ -56,6 +60,7 @@ class Package
 
       # will change the name from the directory to the name element text
       @name = @config[:name] if @config[:name]
+      
       # set the icon
       @icon = File.join(@www, @config[:icon])
       unless @icon
@@ -64,6 +69,10 @@ class Package
         # if it is not in the www directory use the default one in the src dir
         @icon = File.join(framework_res_dir, "drawable", "icon.png") unless File.exists?(icon)
       end 
+      
+      # sets the app js dir where phonegap.js gets copied
+      @app_js_dir = @config[:js_dir] ? @config[:js_dir] : ''
+      
       # sets the start page
       @content = @config[:content] ? @config[:content] : 'index.html'
     end 
@@ -155,7 +164,7 @@ class Package
       phonegapjs << IO.read(File.join(js_dir, script))
       phonegapjs << "\n\n"
     end
-    File.open(File.join(@path, "assets", "www", "phonegap.js"), 'w') {|f| f.write(phonegapjs) }
+    File.open(File.join(@path, "assets", "www", @app_js_dir, "phonegap.js"), 'w') {|f| f.write(phonegapjs) }
   end
   
   # puts app name in strings

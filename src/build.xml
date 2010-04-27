@@ -65,7 +65,7 @@
     <setup />
 
     <target name="move_files">
-      <concat destfile="../example/www/phonegap.js">
+      <concat destfile="../example/www/js/phonegap.js">
         <fileset dir="assets/js" includes="phonegap.js.base" />
         <fileset dir="assets/js" includes="*.js" />
       </concat>

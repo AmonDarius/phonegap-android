@@ -11,6 +11,9 @@
     <icon src="icon.png"/>
     <content src="index.html"/>
     
+    <!-- this is where phonegap.js is copied / goes into root by default-->
+    <preference name="javascript_folder" value="js" /> 
+    
     <!-- android specific settings -->
     <android:versionCode>3</android:versionCode>
     <android:minSdkVersion>1</android:minSdkVersion>
