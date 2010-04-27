@@ -13,7 +13,7 @@ class Run
   # if no path is supplied uses current directory for project
   def initialize(path)
     @pkg = Package.new(path)    
-    @apk = File.join(@pkg.path, "bin", "#{ @pkg.name }-debug.apk")
+    @apk = File.join(@pkg.path, "bin", "#{ @pkg.name.gsub(' ','') }-debug.apk")
 
     build
     install
@@ -30,7 +30,7 @@ class Run
   
   # installs apk to first device found, if none is found the first avd is launched
   def install
-    `adb -s #{ first } install -r #{ @apk } 2>&1 > /dev/null`
+    `adb -s #{ first } install -r #{ @apk }` # ` 2>&1 > /dev/null`
   end
   #
 end
