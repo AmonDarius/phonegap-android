@@ -27,6 +27,7 @@ class Package
     @android_dir      = File.expand_path(File.dirname(__FILE__).gsub('lib',''))
     @framework_dir    = File.join(@android_dir, "src")
     # read in www/config.xml and kick off package
+
     read_config
     run
   end
@@ -61,21 +62,20 @@ class Package
       # will change the name from the directory to the name element text
       @name = @config[:name] if @config[:name]
       
-      # set the icon
+      # set the icon from the config
       @icon = File.join(@www, @config[:icon])
-      unless @icon
-        # set to the default icon location
-        @icon = File.join(@www, 'icon.png') 
-        # if it is not in the www directory use the default one in the src dir
-        @icon = File.join(framework_res_dir, "drawable", "icon.png") unless File.exists?(icon)
-      end 
       
       # sets the app js dir where phonegap.js gets copied
       @app_js_dir = @config[:js_dir] ? @config[:js_dir] : ''
       
       # sets the start page
       @content = @config[:content] ? @config[:content] : 'index.html'
-    end 
+    else
+      # set to the default icon location if not in config
+      @icon = File.join(@www, 'icon.png')
+      @app_js_dir = ''
+      @content = 'index.html'
+    end     
   end 
   
   # runs the build script
@@ -152,6 +152,8 @@ class Package
       FileUtils.cp File.join(framework_res_dir, "layout", f), File.join(app_res_dir, "layout", f)
     end
     # icon file copy
+    # if it is not in the www directory use the default one in the src dir
+    @icon = File.join(framework_res_dir, "drawable", "icon.png") unless File.exists?(@icon)
     %w(drawable-hdpi drawable-ldpi drawable-mdpi).each do |e|
       FileUtils.mkdir_p(File.join(app_res_dir, e))
       FileUtils.cp(@icon, File.join(app_res_dir, e, "icon.png"))
