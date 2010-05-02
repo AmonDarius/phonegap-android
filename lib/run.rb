@@ -19,8 +19,19 @@ class Run
     install
   end
   
-  def first
-    `adb devices`.split("\n").pop().gsub('device','')
+  # returns the first device attached
+  def first_device
+    fd = `adb devices`.split("\n").pop()
+    if fd == 'List of devices attached '
+      nil
+    else
+      fd.gsub('device','')
+    end 
+  end
+  
+  # returns the first emulator
+  def first_avd
+    `android list avd | grep "Name: "`.gsub('Name: ','')
   end
   
   # creates tmp/android/bin/project.apk
@@ -28,9 +39,13 @@ class Run
     `cd #{ @pkg.path }; ant debug`
   end 
   
-  # installs apk to first device found, if none is found the first avd is launched
+  # installs apk to first device or emulator found
   def install
-    `adb -s #{ first } install -r #{ @apk }` # ` 2>&1 > /dev/null`
+    if first_device.nil?
+      `emulator -avd #{ first_avd }; cd #{ @pkg.path }; ant install 2>&1 > /dev/null`
+    else
+      `adb -s #{ first_device } install -r #{ @apk } 2>&1 > /dev/null`
+    end 
   end
   #
 end
