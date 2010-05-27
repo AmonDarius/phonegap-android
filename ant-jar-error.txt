@@ -1,0 +1,55 @@
+jsc-mbp:PhoneGap jstark$ droidgap wiz
+
+Public name for your app (e.g. MyApp):
+Kilo
+
+Package name for your app (e.g. com.example.myapp):
+com.jonathanstark.kilo
+
+Path to your web app directory (e.g. the directory that has your HTML, CSS, and JavaScript files):
+~/Desktop/www
+
+Path to directory where droidgap should output your files (NOTE - must not exist):
+~/Desktop/KiloGap
+
+Android SDK platform you are targeting (leave blank for a list of available targets):
+android-8
+
+BUILD FAILED
+java.lang.NullPointerException
+	at com.android.sdklib.internal.project.ApkSettings.<init>(ApkSettings.java:36)
+	at com.android.ant.AaptExecLoopTask.execute(AaptExecLoopTask.java:269)
+	at org.apache.tools.ant.UnknownElement.execute(UnknownElement.java:288)
+	at sun.reflect.GeneratedMethodAccessor1.invoke(Unknown Source)
+	at sun.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:25)
+	at java.lang.reflect.Method.invoke(Method.java:597)
+	at org.apache.tools.ant.dispatch.DispatchUtils.execute(DispatchUtils.java:106)
+	at org.apache.tools.ant.Task.perform(Task.java:348)
+	at org.apache.tools.ant.Target.execute(Target.java:357)
+	at org.apache.tools.ant.Target.performTasks(Target.java:385)
+	at org.apache.tools.ant.Project.executeSortedTargets(Project.java:1337)
+	at org.apache.tools.ant.Project.executeTarget(Project.java:1306)
+	at org.apache.tools.ant.helper.DefaultExecutor.executeTargets(DefaultExecutor.java:41)
+	at org.apache.tools.ant.Project.executeTargets(Project.java:1189)
+	at org.apache.tools.ant.Main.runBuild(Main.java:758)
+	at org.apache.tools.ant.Main.startAnt(Main.java:217)
+	at org.apache.tools.ant.launch.Launcher.run(Launcher.java:257)
+	at org.apache.tools.ant.launch.Launcher.main(Launcher.java:104)
+
+Total time: 0 seconds
+/System/Library/Frameworks/Ruby.framework/Versions/1.8/usr/lib/ruby/1.8/fileutils.rb:1200:in `stat': No such file or directory - /Users/jstark/Desktop/PhoneGap/src/phonegap.jar (Errno::ENOENT)
+	from /System/Library/Frameworks/Ruby.framework/Versions/1.8/usr/lib/ruby/1.8/fileutils.rb:1200:in `lstat'
+	from /System/Library/Frameworks/Ruby.framework/Versions/1.8/usr/lib/ruby/1.8/fileutils.rb:1178:in `stat'
+	from /System/Library/Frameworks/Ruby.framework/Versions/1.8/usr/lib/ruby/1.8/fileutils.rb:1260:in `copy_file'
+	from /System/Library/Frameworks/Ruby.framework/Versions/1.8/usr/lib/ruby/1.8/fileutils.rb:463:in `copy_file'
+	from /System/Library/Frameworks/Ruby.framework/Versions/1.8/usr/lib/ruby/1.8/fileutils.rb:383:in `cp'
+	from /System/Library/Frameworks/Ruby.framework/Versions/1.8/usr/lib/ruby/1.8/fileutils.rb:1395:in `fu_each_src_dest'
+	from /System/Library/Frameworks/Ruby.framework/Versions/1.8/usr/lib/ruby/1.8/fileutils.rb:1409:in `fu_each_src_dest0'
+	from /System/Library/Frameworks/Ruby.framework/Versions/1.8/usr/lib/ruby/1.8/fileutils.rb:1393:in `fu_each_src_dest'
+	from /System/Library/Frameworks/Ruby.framework/Versions/1.8/usr/lib/ruby/1.8/fileutils.rb:382:in `cp'
+	from /Users/jstark/Desktop/PhoneGap/lib/wizard.rb:131:in `copy_libs'
+	from /Users/jstark/Desktop/PhoneGap/lib/wizard.rb:70:in `run'
+	from /Users/jstark/Desktop/PhoneGap/lib/wizard.rb:60:in `initialize'
+	from /Users/jstark/Desktop/PhoneGap/bin/droidgap:25:in `new'
+	from /Users/jstark/Desktop/PhoneGap/bin/droidgap:25
+jsc-mbp:PhoneGap jstark$ 
