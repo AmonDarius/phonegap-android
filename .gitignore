@@ -5,3 +5,4 @@ assets/www/phonegap.js
 local.properties
 src/phonegap.jar
 example/phonegap.js
+src/build.properties

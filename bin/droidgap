@@ -21,6 +21,9 @@ Package.new(ARGV[1]) if ARGV.first == 'pkg'
 # droidgap run [optional directory]
 Run.new(ARGV[1]) if ARGV.first == 'run'
 
+# droidgap wiz
+Wizard.new() if ARGV.first == 'wiz'
+
 # droidgap log
 `adb logcat` if ARGV.first == 'log'
 
