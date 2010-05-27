@@ -56,7 +56,7 @@ class Wizard
     #   puts "#{var} is #{val.class} and is equal to #{val.inspect}"
     # end
     # exit
-    
+
     run
   end
   
@@ -74,6 +74,8 @@ class Wizard
   
   # Creates an output directory
   def make_output_directory
+    
+    # Double check that we don't clobber an existing dir
     if File.exists? @output_dir
       puts "\nSORRY! '#{ @output_dir }' directory already exists. Please try again.\n\n"
       exit
@@ -139,7 +141,11 @@ class Wizard
     end
     # icon file copy
     # if it is not in the www directory use the default one in the src dir
-    @icon = File.join(framework_res_dir, "drawable", "icon.png") unless File.exists?(@icon)
+    if File.exists?(File.join(@www, "icon.png"))
+      @icon = File.join(@www, "icon.png")
+    else
+      @icon = File.join(framework_res_dir, "drawable", "icon.png")
+    end
     %w(drawable-hdpi drawable-ldpi drawable-mdpi).each do |e|
       FileUtils.mkdir_p(File.join(app_res_dir, e))
       FileUtils.cp(@icon, File.join(app_res_dir, e, "icon.png"))
@@ -152,7 +158,7 @@ class Wizard
       phonegapjs << IO.read(File.join(js_dir, script))
       phonegapjs << "\n\n"
     end
-    File.open(File.join(@output_dir, "assets", "www", @app_js_dir, "phonegap.js"), 'w') {|f| f.write(phonegapjs) }
+    File.open(File.join(@output_dir, "assets", "www", "phonegap.js"), 'w') {|f| f.write(phonegapjs) }
   end
   
   # puts app name in strings
