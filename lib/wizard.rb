@@ -62,6 +62,7 @@ class Wizard
   
   # runs the build script
   def run
+    puts "\nHere we go!\n\n"
     make_output_directory
     build_jar
     create_android
@@ -70,11 +71,13 @@ class Wizard
     copy_libs
     add_name_to_strings
     write_java
+    puts "\nDone!\n\n"
+    `open #{@output_dir}`
   end 
   
   # Creates an output directory
   def make_output_directory
-    
+    puts "Making output directory"
     # Double check that we don't clobber an existing dir
     if File.exists? @output_dir
       puts "\nSORRY! '#{ @output_dir }' directory already exists. Please try again.\n\n"
@@ -86,6 +89,7 @@ class Wizard
   # Removes some files and recreates based on android_sdk_path 
   # then generates framework/phonegap.jar
   def build_jar
+    puts "Building phonegap.jar"
     %w(build.properties local.properties phonegap.js phonegap.jar).each do |f|
       FileUtils.rm File.join(@droidgap_src_dir, f) if File.exists? File.join(@droidgap_src_dir, f)
     end
@@ -102,17 +106,20 @@ class Wizard
 
   # runs android create project
   def create_android
+    puts "Creating Android project"
     `android create project -t #{ @target } -k #{ @pkg } -a #{ @name } -n #{ @name.gsub(' ','') } -p #{ @output_dir }`
   end
   
   # copies the project/www folder into tmp/android/www
   def include_www
+    puts "Copying your web app directory"
     FileUtils.mkdir_p File.join(@output_dir, "assets", "www")
     FileUtils.cp_r File.join(@www, "."), File.join(@output_dir, "assets", "www")
   end
 
   # creates an AndroidManifest.xml for the project
   def generate_manifest
+    puts "Creating AndroidManifest.xml"
     manifest = ""
     open(File.join(@droidgap_src_dir, "AndroidManifest.xml"), 'r') do |old|
       manifest = old.read
@@ -126,6 +133,7 @@ class Wizard
 
   # copies stuff from src directory into the project
   def copy_libs
+    puts "Copying PhoneGap libs"
     framework_res_dir = File.join(@droidgap_src_dir, "res")
     app_res_dir = File.join(@output_dir, "res")
     # copies in the jar
@@ -163,6 +171,7 @@ class Wizard
   
   # puts app name in strings
   def add_name_to_strings
+    puts "Creating strings.xml"
     x = "<?xml version=\"1.0\" encoding=\"utf-8\"?>
     <resources>
       <string name=\"app_name\">#{ @name }</string>
@@ -177,6 +186,7 @@ class Wizard
   # this is so fucking unholy yet oddly beautiful
   # not sure if I should thank Ruby or apologize for this abusive use of string interpolation
   def write_java
+    puts "Creating java file"
     j = "
     package #{ @pkg };
 
