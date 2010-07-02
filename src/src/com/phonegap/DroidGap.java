@@ -184,9 +184,9 @@ public class DroidGap extends Activity {
 	        GapCancelDialog cancelHook = new GapCancelDialog();
 	        alertBldr.setMessage(message);
 	        alertBldr.setTitle("Alert");
-	        alertBldr.setCancelable(true);
+	        alertBldr.setCancelable(false);
 	        alertBldr.setPositiveButton("OK", okHook);
-	        alertBldr.setNegativeButton("Cancel", cancelHook);
+            // alertBldr.setNegativeButton("Cancel", cancelHook);
 	        alertBldr.show();
 	        result.confirm();
 	        return true;
