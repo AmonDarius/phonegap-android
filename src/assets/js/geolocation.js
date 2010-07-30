@@ -73,16 +73,15 @@ Geolocation.prototype.clearWatch = function(watchId)
   Geo.stop(watchId);
 }
 
-// Taken from Jesse's geo fix (similar problem) in PhoneGap iPhone. Go figure, same browser!
-function __proxyObj(origObj, proxyObj, funkList) {
-	for (var v in funkList) {
-		origObj[funkList[v]] = proxyObj[funkList[v]];
-	}
-}
 PhoneGap.addConstructor(function() {
-	navigator._geo = new Geolocation();
-	__proxyObj(navigator.geolocation, navigator._geo,
-		["setLocation", "getCurrentPosition", "watchPosition",
-		 "clearWatch", "setError", "start", "stop", "gotCurrentPosition"]
-	);
+	// Taken from Jesse's geo fix (similar problem) in PhoneGap iPhone. Go figure, same browser!
+	function __proxyObj(origObj, proxyObj, funkList) {
+		for (var v in funkList) {
+			origObj[funkList[v]] = proxyObj[funkList[v]];
+		}
+	}
+	// In the case of Android, we can use the Native Geolocation Object if it exists, so only load this on 1.x devices
+  if (typeof navigator.geolocation == 'undefined') {
+		navigator.geolocation = new Geolocation();
+	}
 });

@@ -7,19 +7,49 @@
 # - packages www to a valid android project in tmp/android
 # - builds tmp/android project into an apk
 # - installs apk onto first device found
-# - attaches a logger to catch output from console.log statements
+# - if there is no device attached it will start an emulator with the first avd found
+# - TODO install apk into now running emulator... need to find way to wait for it to have started
+# - TODO if no avds present it will attempt to create one
 #
 class Run
   # if no path is supplied uses current directory for project
   def initialize(path)
+    puts 'packaging www as phonegap/android project in ./tmp/android...'
     @pkg = Package.new(path)    
     @apk = File.join(@pkg.path, "bin", "#{ @pkg.name.gsub(' ','') }-debug.apk")
-
-    build
-    install
+    build_apk
+    first_device.nil? ? start_emulator : install_to_device
   end
   
-  # returns the first device attached
+  def build_apk
+    puts 'building apk...'
+    `cd #{ @pkg.path }; ant debug;`
+  end
+  
+  def install_to_device
+    puts 'installing to device...'
+    `cd #{ @pkg.path }; ant install;`
+  end 
+  
+  def start_emulator
+    puts "No devices attached. Starting emulator w/ first avd...\n"
+    $stdout.sync = true
+    IO.popen("emulator -avd #{ first_avd } -logcat all") do |f|
+      until f.eof?
+        puts f.gets
+        if f.gets.include? 'Boot is finished'
+          #IO.popen("cd #{ @pkg.path }; ant install;") do |f|
+          #  puts f.gets
+          #end 
+          puts "\n\nEMULATOR IS NOW RUNNING!\n\n"
+          puts "install your app by running: "
+          puts "cd #{ @pkg.path }; ant install;"
+        end 
+      end
+    end
+  end 
+  
+  # helpers
   def first_device
     fd = `adb devices`.split("\n").pop()
     if fd == 'List of devices attached '
@@ -29,23 +59,9 @@ class Run
     end 
   end
   
-  # returns the first emulator
   def first_avd
-    `android list avd | grep "Name: "`.gsub('Name: ','')
+    `android list avd | grep "Name: "`.gsub('Name: ','').strip
   end
-  
-  # creates tmp/android/bin/project.apk
-  def build
-    `cd #{ @pkg.path }; ant debug`
-  end 
-  
-  # installs apk to first device or emulator found
-  def install
-    if first_device.nil?
-      `emulator -avd #{ first_avd }; cd #{ @pkg.path }; ant install 2>&1 > /dev/null`
-    else
-      `adb -s #{ first_device } install -r #{ @apk } 2>&1 > /dev/null`
-    end 
-  end
+
   #
 end

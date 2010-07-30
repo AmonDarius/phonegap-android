@@ -23,14 +23,20 @@ package com.phonegap;
  */
 
 
+import java.io.File;
+
 import android.app.Activity;
 import android.app.AlertDialog;
+import android.content.ContentResolver;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.res.Configuration;
+import android.graphics.Bitmap;
 import android.graphics.Color;
+import android.net.Uri;
 import android.os.Bundle;
+import android.os.Environment;
 import android.util.Log;
 import android.view.KeyEvent;
 import android.view.ViewGroup;
@@ -41,9 +47,12 @@ import android.webkit.WebChromeClient;
 import android.webkit.WebSettings;
 import android.webkit.WebStorage;
 import android.webkit.WebView;
+import android.webkit.WebViewClient;
+import android.webkit.GeolocationPermissions.Callback;
 import android.webkit.WebSettings.LayoutAlgorithm;
 import android.widget.LinearLayout;
 import android.os.Build.*;
+import android.provider.MediaStore;
 
 public class DroidGap extends Activity {
 		
@@ -51,9 +60,9 @@ public class DroidGap extends Activity {
 	protected WebView appView;
 	private LinearLayout root;	
 	
-	private PhoneGap gap;
+	private Device gap;
 	private GeoBroker geo;
-	private AccelListener accel;
+	private AccelBroker accel;
 	private CameraLauncher launcher;
 	private ContactManager mContacts;
 	private FileUtils fs;
@@ -61,6 +70,10 @@ public class DroidGap extends Activity {
 	private CompassListener mCompass;
 	private Storage	cupcakeStorage;
 	private CryptoHandler crypto;
+	private BrowserKey mKey;
+	private AudioHandler audio;
+
+	private Uri imageUri;
 	
     /** Called when the activity is first created. */
 	@Override
@@ -93,7 +106,7 @@ public class DroidGap extends Activity {
         {        
         	appView.setWebChromeClient(new GapClient(this));
         }
-        
+           
         appView.setInitialScale(100);
         appView.setVerticalScrollBarEnabled(false);
         
@@ -101,7 +114,6 @@ public class DroidGap extends Activity {
         settings.setJavaScriptEnabled(true);
         settings.setJavaScriptCanOpenWindowsAutomatically(true);
         settings.setLayoutAlgorithm(LayoutAlgorithm.NORMAL);
-        
 
     	Package pack = this.getClass().getPackage();
     	String appPackage = pack.getName();
@@ -110,15 +122,21 @@ public class DroidGap extends Activity {
         
         // Turn on DOM storage!
         WebViewReflect.setDomStorage(settings);
-        
+        // Turn off native geolocation object in browser - we use our own :)
+        WebViewReflect.setGeolocationEnabled(settings, true);
         /* Bind the appView object to the gap class methods */
         bindBrowser(appView);
         if(cupcakeStorage != null)
         	cupcakeStorage.setStorage(appPackage);
                 
-        root.addView(appView);                   
+        root.addView(appView);   
+        
         setContentView(root);                        
     }
+	
+	public void invoke(String origin, boolean allow, boolean remember) {
+
+	}
 	
 	@Override
     public void onConfigurationChanged(Configuration newConfig) {
@@ -128,19 +146,19 @@ public class DroidGap extends Activity {
     
     private void bindBrowser(WebView appView)
     {
-    	gap = new PhoneGap(this, appView);
-    	geo = new GeoBroker(appView, this);
-    	accel = new AccelListener(this, appView);
+    	gap = new Device(appView, this);
+    	accel = new AccelBroker(appView, this);
     	launcher = new CameraLauncher(appView, this);
-    	mContacts = new ContactManager(this, appView);
+    	mContacts = new ContactManager(appView, this);
     	fs = new FileUtils(appView);
-    	netMan = new NetworkManager(this, appView);
-    	mCompass = new CompassListener(this, appView);  
+    	netMan = new NetworkManager(appView, this);
+    	mCompass = new CompassListener(appView, this);  
     	crypto = new CryptoHandler(appView);
+    	mKey = new BrowserKey(appView, this);
+    	audio = new AudioHandler(appView, this);
     	
     	// This creates the new javascript interfaces for PhoneGap
     	appView.addJavascriptInterface(gap, "DroidGap");
-    	appView.addJavascriptInterface(geo, "Geo");
     	appView.addJavascriptInterface(accel, "Accel");
     	appView.addJavascriptInterface(launcher, "GapCam");
     	appView.addJavascriptInterface(mContacts, "ContactHook");
@@ -148,12 +166,16 @@ public class DroidGap extends Activity {
     	appView.addJavascriptInterface(netMan, "NetworkManager");
     	appView.addJavascriptInterface(mCompass, "CompassHook");
     	appView.addJavascriptInterface(crypto, "GapCrypto");
+    	appView.addJavascriptInterface(mKey, "BackButton");
+    	appView.addJavascriptInterface(audio, "GapAudio");
     	
     	
     	if (android.os.Build.VERSION.RELEASE.startsWith("1."))
     	{
     		cupcakeStorage = new Storage(appView);
+        	geo = new GeoBroker(appView, this);
     		appView.addJavascriptInterface(cupcakeStorage, "droidStorage");
+        	appView.addJavascriptInterface(geo, "Geo");
     	}
     }
            
@@ -162,7 +184,8 @@ public class DroidGap extends Activity {
 	{
 		appView.loadUrl(url);
 	}
-
+	
+	
   /**
     * Provides a hook for calling "alert" from javascript. Useful for
     * debugging your javascript.
@@ -184,9 +207,9 @@ public class DroidGap extends Activity {
 	        GapCancelDialog cancelHook = new GapCancelDialog();
 	        alertBldr.setMessage(message);
 	        alertBldr.setTitle("Alert");
-	        alertBldr.setCancelable(false);
+	        alertBldr.setCancelable(true);
 	        alertBldr.setPositiveButton("OK", okHook);
-            // alertBldr.setNegativeButton("Cancel", cancelHook);
+	        alertBldr.setNegativeButton("Cancel", cancelHook);
 	        alertBldr.show();
 	        result.confirm();
 	        return true;
@@ -220,7 +243,7 @@ public class DroidGap extends Activity {
 	public final class EclairClient extends GapClient
 	{		
 		private String TAG = "PhoneGapLog";
-		private long MAX_QUOTA = 2000000;
+		private long MAX_QUOTA = 100 * 1024 * 1024;
 		
 		public EclairClient(Context ctx) {
 			super(ctx);
@@ -230,10 +253,13 @@ public class DroidGap extends Activity {
 		public void onExceededDatabaseQuota(String url, String databaseIdentifier, long currentQuota, long estimatedSize,
 		    	     long totalUsedQuota, WebStorage.QuotaUpdater quotaUpdater)
 		{
-		    	
+		  Log.d(TAG, "event raised onExceededDatabaseQuota estimatedSize: " + Long.toString(estimatedSize) + " currentQuota: " + Long.toString(currentQuota) + " totalUsedQuota: " + Long.toString(totalUsedQuota));  	
+		  
 			if( estimatedSize < MAX_QUOTA)
-		    	{	
-		    		long newQuota = estimatedSize;
+		    	{	                                        
+		    	  //increase for 1Mb        		    	  		    	  
+		    		long newQuota = currentQuota + 1024*1024;		    		
+		    		Log.d(TAG, "calling quotaUpdater.updateQuota newQuota: " + Long.toString(newQuota) );  	
 		    		quotaUpdater.updateQuota(newQuota);
 		    	}
 		    else
@@ -241,13 +267,21 @@ public class DroidGap extends Activity {
 		    		// Set the quota to whatever it is and force an error
 		    		// TODO: get docs on how to handle this properly
 		    		quotaUpdater.updateQuota(currentQuota);
-		    	}
+		    	}		    	
 		}		
+		                    
+		// console.log in api level 7: http://developer.android.com/guide/developing/debug-tasks.html
+		public void onConsoleMessage(String message, int lineNumber, String sourceID)
+		{       
+			// This is a kludgy hack!!!!
+			Log.d(TAG, sourceID + ": Line " + Integer.toString(lineNumber) + " : " + message);              
+		}
 		
-		// This is a test of console.log, because we don't have this in Android 2.01
-		public void addMessageToConsole(String message, int lineNumber, String sourceID)
-		{
-			Log.d(TAG, sourceID + ": Line " + Integer.toString(lineNumber) + " : " + message);
+		@Override
+		public void onGeolocationPermissionsShowPrompt(String origin, Callback callback) {
+			// TODO Auto-generated method stub
+			super.onGeolocationPermissionsShowPrompt(origin, callback);
+			callback.invoke(origin, true, false);
 		}
 		
 	}
@@ -255,51 +289,63 @@ public class DroidGap extends Activity {
   
     public boolean onKeyDown(int keyCode, KeyEvent event)
     {
-        if (keyCode == KeyEvent.KEYCODE_BACK) {       
-        	String testUrl = appView.getUrl();
-            appView.goBack();
-            if(appView.getUrl() == testUrl)
-            {
-            	return super.onKeyDown(keyCode, event);
-            }
+    	
+        if (keyCode == KeyEvent.KEYCODE_BACK) {
+        	if (mKey.isBound())
+        	{
+        		//We fire an event here!
+        		appView.loadUrl("javascript:document.keyEvent.backTrigger()");
+        	}
+        	else
+        	{
+        		String testUrl = appView.getUrl();
+        		appView.goBack();
+        		if(appView.getUrl().equals(testUrl))
+        		{
+        			return super.onKeyDown(keyCode, event);
+        		}
+        	}
         }
         
         if (keyCode == KeyEvent.KEYCODE_MENU) 
         {
+        	// This is where we launch the menu
         	appView.loadUrl("javascript:keyEvent.menuTrigger()");
         }
-        
-        if (keyCode == KeyEvent.KEYCODE_SEARCH) 
-        {
-        	appView.loadUrl("javascript:keyEvent.searchTrigger()");
-        }
-        
+                
         return false;
     }
 	
     // This is required to start the camera activity!  It has to come from the previous activity
-    public void startCamera(int quality)
+    public void startCamera()
     {
-    Intent i = new Intent(this, CameraPreview.class);
-    	i.setAction("android.intent.action.PICK");
-    	i.putExtra("quality", quality);
-    	startActivityForResult(i, 0);
+    	Intent intent = new Intent("android.media.action.IMAGE_CAPTURE");
+        File photo = new File(Environment.getExternalStorageDirectory(),  "Pic.jpg");
+        intent.putExtra(MediaStore.EXTRA_OUTPUT, Uri.fromFile(photo));
+        imageUri = Uri.fromFile(photo);
+        startActivityForResult(intent, 0);
     }
     
     protected void onActivityResult(int requestCode, int resultCode, Intent intent)
     {
-    	String data;
-    	super.onActivityResult(requestCode, resultCode, intent);
-    	if (resultCode == RESULT_OK)
-    	{
-    		data = intent.getStringExtra("picture");    	     
-    		// Send the graphic back to the class that needs it
-    		launcher.processPicture(data);
-    	}
-    	else
-    	{
-    		launcher.failPicture("Did not complete!");
-    	}
+    	   super.onActivityResult(requestCode, resultCode, intent);
+    	   
+    	   if (resultCode == Activity.RESULT_OK) {
+    		   Uri selectedImage = imageUri;
+    	       getContentResolver().notifyChange(selectedImage, null);
+    	       ContentResolver cr = getContentResolver();
+    	       Bitmap bitmap;
+    	       try {
+    	            bitmap = android.provider.MediaStore.Images.Media.getBitmap(cr, selectedImage);
+    	            launcher.processPicture(bitmap);
+    	       } catch (Exception e) {
+    	    	   launcher.failPicture("Did not complete!");
+    	       }
+    	    }
+    	   else
+    	   {
+    		   launcher.failPicture("Did not complete!");
+    	   }
     }
 
     public WebView getView()

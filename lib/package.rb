@@ -7,8 +7,19 @@
 class Package
   attr_reader :name, :pkg, :www, :path
   
-  # @name, @pkg, @www, @path = a
   def initialize(path)
+    read_config(path)
+    clobber
+    build_jar
+    create_android
+    include_www
+    generate_manifest
+    copy_libs
+    add_name_to_strings
+    write_java
+  end
+  
+  def read_config(path)
     # if no path is supplied uses current directory for project
     if path.nil?
       path = FileUtils.pwd
@@ -16,23 +27,20 @@ class Package
         raise "No www found here... pls specify a path to a valid PhoneGap project directory."
       end 
     end 
+    
     # setup default vars
     @name = path.split("/").last
     @path = File.join(path, "tmp", "android")
     @www  = File.join(path, 'www')
     @name = path.split('/').last
     @pkg  = "com.phonegap"
+    
     # android sdk discovery ... could be better
     @android_sdk_path = `which android`.gsub('/tools/android','')
     @android_dir      = File.expand_path(File.dirname(__FILE__).gsub('lib',''))
     @framework_dir    = File.join(@android_dir, "src")
+    
     # read in www/config.xml and kick off package
-
-    read_config
-    run
-  end
-  
-  def read_config
     @config = {}
     config_file = File.join(@www, 'config.xml')
     
@@ -78,18 +86,6 @@ class Package
     end     
   end 
   
-  # runs the build script
-  def run
-    clobber
-    build_jar
-    create_android
-    include_www
-    generate_manifest
-    copy_libs
-    add_name_to_strings
-    write_java
-  end 
-  
   # kills and replaces tmp/android
   def clobber
     FileUtils.rm_r(@path) if File.exists? @path
@@ -113,7 +109,7 @@ class Package
   # runs android create project
   # TODO need to allow more flexible SDK targetting via config.xml
   def create_android
-    target_id = 5 
+    target_id = 'android-4' 
     `android create project -t #{ target_id } -k #{ @pkg } -a #{ @name } -n #{ @name.gsub(' ','') } -p #{ @path }`
   end
   
@@ -136,7 +132,7 @@ class Package
     open(File.join(@path, "AndroidManifest.xml"), 'w') { |x| x.puts manifest }
   end
 
-  # copies stuff from src directory into the project
+  # copies stuff from src directory into [project]/tmp/android
   def copy_libs
     framework_res_dir = File.join(@framework_dir, "res")
     app_res_dir = File.join(@path, "res")
@@ -158,7 +154,7 @@ class Package
       FileUtils.mkdir_p(File.join(app_res_dir, e))
       FileUtils.cp(@icon, File.join(app_res_dir, e, "icon.png"))
     end
-    # concat JS and put into www folder.
+    # concat JS and put into www folder. this can be overridden in the config.xml via @app_js_dir
     js_dir = File.join(@framework_dir, "assets", "js")
     phonegapjs = IO.read(File.join(js_dir, 'phonegap.js.base'))
     Dir.new(js_dir).entries.each do |script|

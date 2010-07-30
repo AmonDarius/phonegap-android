@@ -13,7 +13,7 @@ public class NetworkManager {
 	WebView mView;
 	ConnectivityManager sockMan;
 	
-	NetworkManager(Context ctx, WebView view)
+	NetworkManager(WebView view, Context ctx)
 	{
 		mCtx = ctx;
 		mView = view;
@@ -32,7 +32,6 @@ public class NetworkManager {
 	public boolean isWifiActive()
 	{
 		NetworkInfo info = sockMan.getActiveNetworkInfo();
-		
 		if(info != null)
 		{
 			String type = info.getTypeName();

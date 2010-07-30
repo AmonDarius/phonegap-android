@@ -4,20 +4,11 @@ function Acceleration(x, y, z)
   this.y = y;
   this.z = z;
   this.timestamp = new Date().getTime();
+  this.win = null;
+  this.fail = null;
 }
 
-// Need to define these for android
-_accel = {};
-_accel.x = 0;
-_accel.y = 0;
-_accel.z = 0;
-
-function gotAccel(x, y, z)
-{
-	_accel.x = x;
-	_accel.y = y;
-	_accel.z = z;
-}
+var accelListeners = [];
 
 /**
  * This class provides access to device accelerometer data.
@@ -45,11 +36,32 @@ Accelerometer.prototype.getCurrentAcceleration = function(successCallback, error
 
 	// Created for iPhone, Iphone passes back _accel obj litteral
 	if (typeof successCallback == "function") {
-		var accel = new Acceleration(_accel.x,_accel.y,_accel.z);
-		Accelerometer.lastAcceleration = accel;
-		successCallback(accel);
+		if(this.lastAcceleration)
+		  successCallback(accel);
+		else
+		{
+			watchAcceleration(this.gotCurrentAcceleration, this.fail);
+		}
 	}
 }
+
+
+Accelerometer.prototype.gotAccel = function(key, x, y, z)
+{
+    var a = new Acceleration(x,y,z);
+    a.x = x;
+    a.y = y;
+    a.x = z;
+    a.win = accelListeners[key].win;
+    a.fail = accelListeners[key].fail;
+    this.timestamp = new Date().getTime();
+    this.lastAcceleration = a;
+    accelListeners[key] = a;
+    if (typeof a.win == "function") {
+      a.win(a);
+    }
+}
+
 
 /**
  * Asynchronously aquires the acceleration repeatedly at a given interval.
@@ -63,12 +75,13 @@ Accelerometer.prototype.getCurrentAcceleration = function(successCallback, error
 
 Accelerometer.prototype.watchAcceleration = function(successCallback, errorCallback, options) {
 	// TODO: add the interval id to a list so we can clear all watches
- 	var frequency = (options != undefined)? options.frequency : 10000;
-	
-	Accel.start(frequency);
-	return setInterval(function() {
-		navigator.accelerometer.getCurrentAcceleration(successCallback, errorCallback, options);
-	}, frequency);
+  var frequency = (options != undefined)? options.frequency : 10000;
+  var accel = Acceleration(0,0,0);
+  accel.win = successCallback;
+  accel.fail = errorCallback;
+  accel.opts = options;
+  var key = accelListeners.push( accel ) - 1;
+  Accel.start(frequency, key);
 }
 
 /**
@@ -76,8 +89,11 @@ Accelerometer.prototype.watchAcceleration = function(successCallback, errorCallb
  * @param {String} watchId The ID of the watch returned from #watchAcceleration.
  */
 Accelerometer.prototype.clearWatch = function(watchId) {
-	Accel.stop();
-	clearInterval(watchId);
+	Accel.stop(watchId);
+}
+
+Accelerometer.prototype.epicFail = function(watchId, message) {
+  accelWatcher[key].fail();
 }
 
 PhoneGap.addConstructor(function() {

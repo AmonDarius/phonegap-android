@@ -139,20 +139,11 @@ function Acceleration(x, y, z)
   this.y = y;
   this.z = z;
   this.timestamp = new Date().getTime();
+  this.win = null;
+  this.fail = null;
 }
 
-// Need to define these for android
-_accel = {};
-_accel.x = 0;
-_accel.y = 0;
-_accel.z = 0;
-
-function gotAccel(x, y, z)
-{
-	_accel.x = x;
-	_accel.y = y;
-	_accel.z = z;
-}
+var accelListeners = [];
 
 /**
  * This class provides access to device accelerometer data.
@@ -180,11 +171,32 @@ Accelerometer.prototype.getCurrentAcceleration = function(successCallback, error
 
 	// Created for iPhone, Iphone passes back _accel obj litteral
 	if (typeof successCallback == "function") {
-		var accel = new Acceleration(_accel.x,_accel.y,_accel.z);
-		Accelerometer.lastAcceleration = accel;
-		successCallback(accel);
+		if(this.lastAcceleration)
+		  successCallback(accel);
+		else
+		{
+			watchAcceleration(this.gotCurrentAcceleration, this.fail);
+		}
 	}
 }
+
+
+Accelerometer.prototype.gotAccel = function(key, x, y, z)
+{
+    var a = new Acceleration(x,y,z);
+    a.x = x;
+    a.y = y;
+    a.x = z;
+    a.win = accelListeners[key].win;
+    a.fail = accelListeners[key].fail;
+    this.timestamp = new Date().getTime();
+    this.lastAcceleration = a;
+    accelListeners[key] = a;
+    if (typeof a.win == "function") {
+      a.win(a);
+    }
+}
+
 
 /**
  * Asynchronously aquires the acceleration repeatedly at a given interval.
@@ -198,12 +210,13 @@ Accelerometer.prototype.getCurrentAcceleration = function(successCallback, error
 
 Accelerometer.prototype.watchAcceleration = function(successCallback, errorCallback, options) {
 	// TODO: add the interval id to a list so we can clear all watches
- 	var frequency = (options != undefined)? options.frequency : 10000;
-	
-	Accel.start(frequency);
-	return setInterval(function() {
-		navigator.accelerometer.getCurrentAcceleration(successCallback, errorCallback, options);
-	}, frequency);
+  var frequency = (options != undefined)? options.frequency : 10000;
+  var accel = Acceleration(0,0,0);
+  accel.win = successCallback;
+  accel.fail = errorCallback;
+  accel.opts = options;
+  var key = accelListeners.push( accel ) - 1;
+  Accel.start(frequency, key);
 }
 
 /**
@@ -211,8 +224,11 @@ Accelerometer.prototype.watchAcceleration = function(successCallback, errorCallb
  * @param {String} watchId The ID of the watch returned from #watchAcceleration.
  */
 Accelerometer.prototype.clearWatch = function(watchId) {
-	Accel.stop();
-	clearInterval(watchId);
+	Accel.stop(watchId);
+}
+
+Accelerometer.prototype.epicFail = function(watchId, message) {
+  accelWatcher[key].fail();
 }
 
 PhoneGap.addConstructor(function() {
@@ -286,7 +302,7 @@ function Compass() {
  */
 Compass.prototype.getCurrentHeading = function(successCallback, errorCallback, options) {
 	if (this.lastHeading == null) {
-		this.start(options);
+		CompassHook.start();
 	}
 	else 
 	if (typeof successCallback == "function") {
@@ -488,11 +504,41 @@ function Device() {
             this.version = window.DroidGap.getOSVersion();
             this.gapVersion = window.DroidGap.getVersion();
             this.platform = window.DroidGap.getPlatform();
-            this.name = window.DroidGap.getProductName();  
+            this.name = window.DroidGap.getProductName();
+            this.line1Number = window.DroidGap.getLine1Number();
+            this.deviceId = window.DroidGap.getDeviceId();
+            this.simSerialNumber = window.DroidGap.getSimSerialNumber();
+            this.subscriberId = window.DroidGap.getSubscriberId();
         } 
     } catch(e) {
         this.available = false;
     }
+}
+
+/*
+ * You must explicitly override the back button. 
+ */
+
+Device.prototype.overrideBackButton = function()
+{
+  BackButton.override();
+}
+
+/*
+ * This resets the back button to the default behaviour
+ */
+
+Device.prototype.resetBackButton = function()
+{
+  BackButton.reset();
+}
+
+/*
+ * This terminates the activity!
+ */
+Device.prototype.exitApp = function()
+{
+  BackButton.exitApp();
 }
 
 PhoneGap.addConstructor(function() {
@@ -628,7 +674,7 @@ FileMgr.prototype.createDirectory = function(dirName, successCallback, errorCall
 {
 	this.successCallback = successCallback;
 	this.errorCallback = errorCallback;
-	var test = FileUtils.createDirectory(dirName);
+	var test = FileUtil.createDirectory(dirName);
 	test ? successCallback() : errorCallback();
 }
 
@@ -636,7 +682,7 @@ FileMgr.prototype.deleteDirectory = function(dirName, successCallback, errorCall
 {
 	this.successCallback = successCallback;
 	this.errorCallback = errorCallback;
-	var test = FileUtils.deleteDirectory(dirName);
+	var test = FileUtil.deleteDirectory(dirName);
 	test ? successCallback() : errorCallback();
 }
 
@@ -644,7 +690,7 @@ FileMgr.prototype.deleteFile = function(fileName, successCallback, errorCallback
 {
 	this.successCallback = successCallback;
 	this.errorCallback = errorCallback;
-	FileUtils.deleteFile(fileName);
+	FileUtil.deleteFile(fileName);
 	test ? successCallback() : errorCallback();
 }
 
@@ -658,7 +704,7 @@ FileMgr.prototype.getFreeDiskSpace = function(successCallback, errorCallback)
 	{
 		this.successCallback = successCallback;
 		this.errorCallback = errorCallback;
-		this.freeDiskSpace = FileUtils.getFreeDiskSpace();
+		this.freeDiskSpace = FileUtil.getFreeDiskSpace();
   		(this.freeDiskSpace > 0) ? successCallback() : errorCallback();
 	}
 }
@@ -693,7 +739,7 @@ FileReader.prototype.readAsText = function(file)
 	this.fileName = file;
 	navigator.fileMgr.addFileReader(this.fileName,this);
 
-  	return FileUtil.read(fileName);
+  	return FileUtil.read(this.fileName);
 }
 
 // File Writer
@@ -799,33 +845,26 @@ Geolocation.prototype.clearWatch = function(watchId)
   Geo.stop(watchId);
 }
 
-// Taken from Jesse's geo fix (similar problem) in PhoneGap iPhone. Go figure, same browser!
-function __proxyObj(origObj, proxyObj, funkList) {
-	for (var v in funkList) {
-		origObj[funkList[v]] = proxyObj[funkList[v]];
-	}
-}
 PhoneGap.addConstructor(function() {
-	navigator._geo = new Geolocation();
-	__proxyObj(navigator.geolocation, navigator._geo,
-		["setLocation", "getCurrentPosition", "watchPosition",
-		 "clearWatch", "setError", "start", "stop", "gotCurrentPosition"]
-	);
-});function KeyEvent() 
+	// Taken from Jesse's geo fix (similar problem) in PhoneGap iPhone. Go figure, same browser!
+	function __proxyObj(origObj, proxyObj, funkList) {
+		for (var v in funkList) {
+			origObj[funkList[v]] = proxyObj[funkList[v]];
+		}
+	}
+	// In the case of Android, we can use the Native Geolocation Object if it exists, so only load this on 1.x devices
+  if (typeof navigator.geolocation == 'undefined') {
+		navigator.geolocation = new Geolocation();
+	}
+});
+function KeyEvent() 
 {
 }
 
-KeyEvent.prototype.menuTrigger = function()
+KeyEvent.prototype.backTrigger = function()
 {
   var e = document.createEvent('Events');
-  e.initEvent('menuKeyDown');
-  document.dispatchEvent(e);
-}
-
-KeyEvent.prototype.searchTrigger= function()
-{
-  var e = document.createEvent('Events');
-  e.initEvent('searchKeyDown');
+  e.initEvent('backKeyDown');
   document.dispatchEvent(e);
 }
 
@@ -879,19 +918,19 @@ MediaError.MEDIA_ERR_NONE_SUPPORTED = 4;
  */
 
 Media.prototype.play = function() {
-  DroidGap.startPlayingAudio(this.src);  
+  GapAudio.startPlayingAudio(this.src);  
 }
 
 Media.prototype.stop = function() {
-  DroidGap.stopPlayingAudio();
+  GapAudio.stopPlayingAudio();
 }
 
 Media.prototype.startRecord = function() {
-  DroidGap.startRecordingAudio(this.src);
+  GapAudio.startRecordingAudio(this.src);
 }
 
 Media.prototype.stopRecordingAudio = function() {
-  DroidGap.stopRecordingAudio();
+  GapAudio.stopRecordingAudio();
 }
 
 
@@ -951,9 +990,7 @@ PhoneGap.addConstructor(function() {
 });/**
  * This class provides access to notifications on the device.
  */
-function Notification() {
-	
-}
+function Notification() {};
 
 /**
  * Open a native alert dialog, with a customizable title and button text.
@@ -962,69 +999,41 @@ function Notification() {
  * @param {String} [buttonLabel="OK"] Label of the close button (default: OK)
  */
 Notification.prototype.alert = function(message, title, buttonLabel) {
-    // Default is to use a browser alert; this will use "index.html" as the title though
-    alert(message);
+    alert(message); // Default is to use a browser alert; FIXME this will use "index.html" as the title though
 };
 
 /**
  * Start spinning the activity indicator on the statusbar
  */
-Notification.prototype.activityStart = function() {
-};
+Notification.prototype.activityStart = function() {};
 
 /**
  * Stop spinning the activity indicator on the statusbar, if it's currently spinning
  */
-Notification.prototype.activityStop = function() {
-};
+Notification.prototype.activityStop = function() {};
 
 /**
  * Causes the device to blink a status LED.
  * @param {Integer} count The number of blinks.
  * @param {String} colour The colour of the light.
  */
-Notification.prototype.blink = function(count, colour) {
-	
-};
+Notification.prototype.blink = function(count, colour) {};
 
-/**
- * Causes the device to vibrate.
- * @param {Integer} mills The number of milliseconds to vibrate for.
- */
 Notification.prototype.vibrate = function(mills) {
-	
+    DroidGap.vibrate(mills);
 };
 
 /**
- * Causes the device to beep.
- * @param {Integer} count The number of beeps.
- * @param {Integer} volume The volume of the beep.
+ * On the Android, we don't beep, we notify you with your notification! 
  */
 Notification.prototype.beep = function(count, volume) {
-	
+     DroidGap.beep(count);
 };
 
 // TODO: of course on Blackberry and Android there notifications in the UI as well
-
 PhoneGap.addConstructor(function() {
     if (typeof navigator.notification == "undefined") navigator.notification = new Notification();
 });
-
-Notification.prototype.vibrate = function(mills)
-{
-  DroidGap.vibrate(mills);
-}
-
-/*
- * On the Android, we don't beep, we notify you with your 
- * notification!  We shouldn't keep hammering on this, and should
- * review what we want beep to do.
- */
-
-Notification.prototype.beep = function(count, volume)
-{
-  DroidGap.beep(count);
-}
 /**
  * This class contains position information.
  * @param {Object} lat
@@ -1179,10 +1188,10 @@ var dbSetup = function(name, version, display_name, size)
 }
 
 PhoneGap.addConstructor(function() {
-  if (typeof navigator.openDatabase == "undefined") 
+  if (typeof window.openDatabase == "undefined") 
   {
     navigator.openDatabase = window.openDatabase = dbSetup;
-  window.droiddb = new DroidDB();
+    window.droiddb = new DroidDB();
   }
 });
 
