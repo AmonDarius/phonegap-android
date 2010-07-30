@@ -91,7 +91,7 @@ class Package
     FileUtils.rm_r(@path) if File.exists? @path
     FileUtils.mkdir_p @path
   end
-  
+
   # removes local.properties and recreates based on android_sdk_path 
   # then generates framework/phonegap.jar
   def build_jar
@@ -109,7 +109,7 @@ class Package
   # runs android create project
   # TODO need to allow more flexible SDK targetting via config.xml
   def create_android
-    target_id = 'android-4' 
+    target_id = 5
     `android create project -t #{ target_id } -k #{ @pkg } -a #{ @name } -n #{ @name.gsub(' ','') } -p #{ @path }`
   end
   
